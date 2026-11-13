@@ -12,8 +12,10 @@ COPY tsconfig.base.json ./
 COPY apps/web apps/web
 RUN npm run build --workspace apps/web
 
-FROM nginx:1.29-alpine AS runtime
+# Unprivileged variant: runs as the nginx user (uid 101), so it listens on 8080 instead of 80.
+FROM nginxinc/nginx-unprivileged:1.29-alpine AS runtime
 COPY apps/web/nginx.conf /etc/nginx/conf.d/default.conf
 COPY --from=build /app/apps/web/dist /usr/share/nginx/html
-EXPOSE 80
-HEALTHCHECK --interval=10s --timeout=3s --retries=5 CMD wget -qO- http://127.0.0.1/ >/dev/null || exit 1
+USER 101
+EXPOSE 8080
+HEALTHCHECK --interval=10s --timeout=3s --retries=5 CMD wget -qO- http://127.0.0.1:8080/ >/dev/null || exit 1
