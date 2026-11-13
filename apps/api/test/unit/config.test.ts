@@ -26,6 +26,12 @@ describe('loadConfig', () => {
     );
   });
 
+  it('parses TRUST_PROXY as a hop count, defaulting to no trusted proxies', () => {
+    expect(loadConfig(base).TRUST_PROXY).toBe(0);
+    expect(loadConfig({ ...base, TRUST_PROXY: '1' }).TRUST_PROXY).toBe(1);
+    expect(() => loadConfig({ ...base, TRUST_PROXY: 'true' })).toThrow(/TRUST_PROXY/);
+  });
+
   it('requires DATABASE_URL', () => {
     expect(() => loadConfig({ JWT_SECRET: base.JWT_SECRET })).toThrow(/DATABASE_URL/);
   });

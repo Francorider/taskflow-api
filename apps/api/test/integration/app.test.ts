@@ -39,3 +39,25 @@ describe('application', () => {
     );
   });
 });
+
+describe('behind a reverse proxy', () => {
+  it('rate-limits by the client address from the trusted hop, ignoring spoofed entries', async () => {
+    const proxied = await createTestContext({ TRUST_PROXY: '1', AUTH_RATE_LIMIT_MAX: '2' });
+    try {
+      const login = (forwardedFor: string) =>
+        request(proxied.app.server)
+          .post('/api/auth/login')
+          .set('X-Forwarded-For', forwardedFor)
+          .send({ email: 'nobody@example.com', password: 'wrong' });
+
+      // Same real client (last hop) with a different spoofed first entry each time.
+      expect((await login('1.1.1.1, 203.0.113.7')).status).toBe(401);
+      expect((await login('2.2.2.2, 203.0.113.7')).status).toBe(401);
+      expect((await login('3.3.3.3, 203.0.113.7')).status).toBe(429);
+      // A different real client has its own budget.
+      expect((await login('1.1.1.1, 203.0.113.8')).status).toBe(401);
+    } finally {
+      await proxied.close();
+    }
+  });
+});

@@ -38,7 +38,11 @@ function loggerOptions(config: Config): FastifyServerOptions['logger'] {
 }
 
 export async function buildApp({ config, db }: AppDependencies) {
-  const app = Fastify({ logger: loggerOptions(config) }).withTypeProvider<ZodTypeProvider>();
+  const app = Fastify({
+    logger: loggerOptions(config),
+    // Trust only the nearest TRUST_PROXY hops; hop 0 is the proxy that connected to us.
+    trustProxy: (_address: string, hop: number) => hop < config.TRUST_PROXY,
+  }).withTypeProvider<ZodTypeProvider>();
 
   app.setValidatorCompiler(validatorCompiler);
   app.setSerializerCompiler(serializerCompiler);

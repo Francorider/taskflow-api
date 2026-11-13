@@ -11,6 +11,10 @@ const configSchema = z.object({
   CORS_ORIGIN: z.string().default('http://localhost:5173'),
   BCRYPT_ROUNDS: z.coerce.number().int().min(4).max(15).default(12),
   AUTH_RATE_LIMIT_MAX: z.coerce.number().int().positive().default(20),
+  // Number of reverse proxies in front of the API (nginx, a PaaS load balancer). With 1+, request.ip,
+  // and so rate limiting, uses the client address from X-Forwarded-For. A hop count rather than
+  // "trust everything" stops clients spoofing the header to dodge the rate limit.
+  TRUST_PROXY: z.coerce.number().int().min(0).max(5).default(0),
 });
 
 export type Config = z.infer<typeof configSchema>;

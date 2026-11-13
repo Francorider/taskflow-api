@@ -13,13 +13,14 @@ export interface TestContext {
   close: () => Promise<void>;
 }
 
-export async function createTestContext(): Promise<TestContext> {
+export async function createTestContext(env: Record<string, string> = {}): Promise<TestContext> {
   const config = loadConfig({
     NODE_ENV: 'test',
     DATABASE_URL: TEST_DATABASE_URL,
     JWT_SECRET: 'integration-test-secret-at-least-32-chars',
     BCRYPT_ROUNDS: '4',
     AUTH_RATE_LIMIT_MAX: '1000',
+    ...env,
   });
   const { db, pool } = createDb(config.DATABASE_URL);
   const app = await buildApp({ config, db });
