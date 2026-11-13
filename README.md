@@ -19,7 +19,9 @@ The goal of the project is to show how I structure a small production-style serv
 - [Testing](#testing)
 - [API summary](#api-summary)
 - [Screenshots](#screenshots)
+- [Deployment](#deployment)
 - [Project layout](#project-layout)
+- [Author](#author)
 
 ## Features
 
@@ -59,7 +61,7 @@ You can also register your own account from the sign-in screen. Set `SEED_DEMO_D
 flowchart LR
     browser[Browser<br/>React SPA]
     subgraph compose[docker compose]
-        web[web<br/>nginx: static files + reverse proxy]
+        web[web<br/>nginx, non-root: static files + reverse proxy]
         api[api<br/>Fastify + Zod + Drizzle]
         db[(db<br/>PostgreSQL 17)]
     end
@@ -133,7 +135,7 @@ cp apps/api/.env.example apps/api/.env      # then set JWT_SECRET
 npm run db:migrate -w apps/api
 npm run db:seed -w apps/api                 # optional demo data
 npm run dev -w apps/api                     # http://localhost:3000, docs at /docs
-npm run dev -w apps/web                     # http://localhost:5173, proxies /api to :3000
+npm run dev -w apps/web                     # http://localhost:5173, proxies /api and /docs to :3000
 ```
 
 Root scripts run across both workspaces:
@@ -146,22 +148,25 @@ Root scripts run across both workspaces:
 | `npm test`             | All unit, integration and component tests     |
 | `npm run build`        | Production builds of the API and the client   |
 
+Swagger UI is then available at http://localhost:5173/docs (through the Vite proxy) or directly at http://localhost:3000/docs.
+
 API-specific: `db:generate` creates a new migration from schema changes, and `openapi` regenerates `docs/openapi.json`.
 
 ### Configuration
 
 The API validates its environment with Zod at startup and refuses to boot with a readable message if anything is wrong.
 
-| Variable              | Default                 | Notes                                     |
-| --------------------- | ----------------------- | ----------------------------------------- |
-| `DATABASE_URL`        | (required)              | `postgres://` connection string           |
-| `JWT_SECRET`          | (required)              | At least 32 characters                    |
-| `JWT_EXPIRES_IN`      | `12h`                   | Any duration `@fastify/jwt` accepts       |
-| `PORT` / `HOST`       | `3000` / `0.0.0.0`      |                                           |
-| `CORS_ORIGIN`         | `http://localhost:5173` | Comma-separated list                      |
-| `LOG_LEVEL`           | `info`                  | Pino level                                |
-| `BCRYPT_ROUNDS`       | `12`                    | Lowered to 4 in tests for speed           |
-| `AUTH_RATE_LIMIT_MAX` | `20`                    | Requests per minute per IP on auth routes |
+| Variable              | Default                 | Notes                                                                                       |
+| --------------------- | ----------------------- | ------------------------------------------------------------------------------------------- |
+| `DATABASE_URL`        | (required)              | `postgres://` connection string                                                             |
+| `JWT_SECRET`          | (required)              | At least 32 characters                                                                      |
+| `JWT_EXPIRES_IN`      | `12h`                   | Any duration `@fastify/jwt` accepts                                                         |
+| `PORT` / `HOST`       | `3000` / `0.0.0.0`      |                                                                                             |
+| `CORS_ORIGIN`         | `http://localhost:5173` | Comma-separated list                                                                        |
+| `LOG_LEVEL`           | `info`                  | Pino level                                                                                  |
+| `BCRYPT_ROUNDS`       | `12`                    | Lowered to 4 in tests for speed                                                             |
+| `AUTH_RATE_LIMIT_MAX` | `20`                    | Requests per minute per IP on auth routes                                                   |
+| `TRUST_PROXY`         | `0`                     | Number of reverse proxies in front of the API; set so rate limiting sees the real client IP |
 
 ## Testing
 
@@ -257,6 +262,18 @@ curl -s "localhost:3000/api/tasks?tags=docs&sort=dueDate&order=asc" -H "Authoriz
 | ----------------------------------------------- | -------------------------------------------------------------------------------- |
 | ![Filtered list](docs/screenshots/filtered.png) | <img src="docs/screenshots/mobile-dark.png" alt="Mobile dark theme" width="300"> |
 
+## Deployment
+
+[`render.yaml`](render.yaml) is a [Render Blueprint](https://render.com/docs/infrastructure-as-code) that provisions the hosted demo on free instance types:
+
+- **taskflow-db:** managed PostgreSQL.
+- **taskflow-api:** the same API Docker image used by Compose. Migrations and the demo seed run on start, `JWT_SECRET` is generated by Render, and `TRUST_PROXY=1` accounts for Render's load balancer.
+- **taskflow-web:** the client built as a static site, calling the API at its own URL (`VITE_API_URL`) with CORS restricted to the site's origin, and a rewrite to `index.html` for client-side routes.
+
+To deploy your own copy: Render Dashboard, **New > Blueprint**, connect the repository, then **Deploy Blueprint**. If Render gives the services different `onrender.com` names, update `CORS_ORIGIN` and `VITE_API_URL` in `render.yaml` to match.
+
+Free-tier caveats, per [Render's docs](https://render.com/docs/free): the API spins down after 15 minutes without traffic, so the first request after a pause takes around a minute, and a free database expires 30 days after creation unless it is upgraded.
+
 ## Project layout
 
 ```
@@ -282,8 +299,15 @@ curl -s "localhost:3000/api/tasks?tags=docs&sort=dueDate&order=asc" -H "Authoriz
 │           └── pages/        Sign-in and task pages
 ├── docs/                     OpenAPI spec and screenshots
 ├── docker-compose.yml
+├── render.yaml               Render Blueprint for the hosted demo
 └── .github/workflows/ci.yml
 ```
+
+## Author
+
+**Francois Viljoen** ([francois.viljoen.solutions@gmail.com](mailto:francois.viljoen.solutions@gmail.com))
+
+A personal portfolio project, built independently and not affiliated with any employer.
 
 ## License
 
